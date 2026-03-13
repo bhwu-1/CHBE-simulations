@@ -30,8 +30,8 @@ The simulation is grounded in the kinetic and process parameters from the CHBE 2
 **Requirements:** Python 3.8+, Anaconda recommended
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/creatine-simulator
-cd creatine-simulator
+git clone https://github.com/bhwu-1/CHBE-simulations
+cd CHBE-simulations
 pip install streamlit numpy matplotlib scipy pandas
 streamlit run creatine_fedbatch_simulator.py
 ```
