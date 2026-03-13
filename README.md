@@ -1,4 +1,4 @@
-# 🧬 Bioprocess & Control Engineering Simulations
+# Bioprocess & Control Engineering Simulations
 
 **CHBE 221 · University of British Columbia · Team 22**
 
