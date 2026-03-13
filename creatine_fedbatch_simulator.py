@@ -3,32 +3,31 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from scipy.integrate import solve_ivp
+import pandas as pd
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Creatine Fed-Batch Simulator", layout="wide")
 
-st.title("🧬 Creatine Fed-Batch Bioprocess Simulator")
+st.title("Creatine Fed-Batch Bioprocess Simulator")
 st.markdown(
     "Simulates creatine production using engineered *C. glutamicum* expressing **Mcgamt** "
     "(Ptac/IPTG-inducible) in a fed-batch stirred-tank bioreactor. "
-    "Based on CHBE 221 Team 22 process design."
+    "CHBE 221 Team 22 process design."
 )
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
-st.sidebar.header("🦠 Biological Parameters")
+st.sidebar.header("Biological Parameters")
 
-mu_max   = st.sidebar.slider("Max growth rate μmax (h⁻¹)", 0.1, 0.6, 0.42, 0.01,
-                              help="Literature: 0.40–0.45 h⁻¹ for C. glutamicum")
-Ks       = st.sidebar.slider("Monod constant Ks (g/L)", 0.01, 1.0, 0.15, 0.01,
-                              help="Glucose concentration at half-max growth rate")
-Yxs      = st.sidebar.slider("Biomass yield Yx/s (g DCW/g glucose)", 0.3, 0.7, 0.50, 0.01,
-                              help="Grams of biomass per gram of glucose consumed")
-ms       = st.sidebar.slider("Maintenance coefficient (g glucose/g DCW/h)", 0.0, 0.05, 0.01, 0.001)
+mu_max    = st.sidebar.slider("Max growth rate umax (h-1)", 0.1, 0.6, 0.42, 0.01,
+                               help="Literature: 0.40-0.45 h-1 for C. glutamicum")
+Ks        = st.sidebar.slider("Monod constant Ks (g/L)", 0.01, 1.0, 0.15, 0.01,
+                               help="Glucose concentration at half-max growth rate")
+Yxs       = st.sidebar.slider("Biomass yield Yx/s (g DCW/g glucose)", 0.3, 0.7, 0.50, 0.01)
+ms        = st.sidebar.slider("Maintenance coefficient (g glucose/g DCW/h)", 0.0, 0.05, 0.01, 0.001)
 
 st.sidebar.markdown("---")
-st.sidebar.header("⚗️ GAMT / Creatine Kinetics")
+st.sidebar.header("GAMT / Creatine Kinetics")
 
-k_gamt    = st.sidebar.slider("GAMT induction rate (h⁻¹)", 0.01, 1.0, 0.3, 0.01,
+k_gamt    = st.sidebar.slider("GAMT induction rate (h-1)", 0.01, 1.0, 0.3, 0.01,
                                help="Rate at which GAMT activity builds up post-IPTG")
 Vmax_gamt = st.sidebar.slider("Max GAMT activity Vmax (g creatine/g DCW/h)", 0.1, 2.0, 0.8, 0.05)
 Km_gaa    = st.sidebar.slider("Km for GAA (g/L)", 0.01, 1.0, 0.1, 0.01)
@@ -36,11 +35,11 @@ Ki_gaa    = st.sidebar.slider("GAA inhibition constant Ki (g/L)", 0.5, 10.0, 3.0
                                help="GAA concentration where substrate inhibition begins")
 
 st.sidebar.markdown("---")
-st.sidebar.header("🏭 Feed Strategy")
+st.sidebar.header("Feed Strategy")
 
-X0        = st.sidebar.slider("Initial biomass X₀ (g/L)", 0.1, 2.0, 0.5, 0.1)
-S0        = st.sidebar.slider("Initial glucose S₀ (g/L)", 5.0, 40.0, 40.0, 1.0)
-V0        = st.sidebar.slider("Initial volume V₀ (L)", 1.0, 10.0, 5.0, 0.5)
+X0        = st.sidebar.slider("Initial biomass X0 (g/L)", 0.1, 2.0, 0.5, 0.1)
+S0        = st.sidebar.slider("Initial glucose S0 (g/L)", 5.0, 40.0, 40.0, 1.0)
+V0        = st.sidebar.slider("Initial volume V0 (L)", 1.0, 10.0, 5.0, 0.5)
 X_induce  = st.sidebar.slider("Induction biomass target (g/L)", 5.0, 30.0, 15.0, 1.0,
                                help="IPTG added when biomass reaches this density")
 
@@ -79,7 +78,7 @@ def fed_batch_odes(t, y, params):
     F_total   = F_g_act + F_gaa_act
     D         = F_total / V
 
-    dE   = k_gamt * induced * (1 - E) - 0.02 * E
+    dE     = k_gamt * induced * (1 - E) - 0.02 * E
     v_gamt = Vmax_gamt * E * GAA / (Km_gaa + GAA + (GAA**2) / Ki_gaa)
 
     dX   =  mu * X - D * X
@@ -94,9 +93,9 @@ def fed_batch_odes(t, y, params):
 params = (mu_max, Ks, Yxs, ms, k_gamt, Vmax_gamt, Km_gaa, Ki_gaa,
           F_gluc, S_feed, F_gaa, GAA_feed, X_induce, feed_mode)
 
-y0     = [X0, S0, 0.0, 0.0, V0, 0.0]
-sol    = solve_ivp(fed_batch_odes, (0, t_end), y0, args=(params,),
-                   t_eval=np.linspace(0, t_end, 600), method="RK45", max_step=0.05)
+y0  = [X0, S0, 0.0, 0.0, V0, 0.0]
+sol = solve_ivp(fed_batch_odes, (0, t_end), y0, args=(params,),
+                t_eval=np.linspace(0, t_end, 600), method="RK45", max_step=0.05)
 
 t  = sol.t
 X  = np.maximum(sol.y[0], 0)
@@ -109,65 +108,79 @@ E  = np.clip(sol.y[5], 0, 1)
 ind_idx  = np.where(X >= X_induce)[0]
 t_induce = t[ind_idx[0]] if len(ind_idx) > 0 else t_end
 
-# ── Colours ───────────────────────────────────────────────────────────────────
-BG = "#0e1117"; PANEL = "#1a1d27"; TEXT = "#e0e0e0"
-CYAN = "#00c8ff"; GREEN = "#00e676"; ORANGE = "#ff9800"
-RED = "#ff4444"; PURPLE = "#bb86fc"; YELLOW = "#ffd54f"
+# ── Plot style ────────────────────────────────────────────────────────────────
+plt.rcParams.update({
+    "font.family":    "sans-serif",
+    "axes.spines.top":  False,
+    "axes.spines.right": False,
+})
 
-def style_ax(ax, title):
+BG    = "white"
+PANEL = "#f8f8f8"
+TEXT  = "#222222"
+C1    = "#1f4e79"   # dark blue  — biomass / creatine
+C2    = "#2e86ab"   # mid blue   — glucose
+C3    = "#a23b72"   # plum       — GAA
+C4    = "#c73e1d"   # red        — GAMT
+C5    = "#3b1f2b"   # dark       — volume
+IND   = "#999999"   # grey dashed — induction line
+
+def style_ax(ax, title, xlabel, ylabel):
     ax.set_facecolor(PANEL)
-    ax.set_title(title, color=TEXT, fontsize=10, fontweight="bold", pad=7)
+    ax.set_title(title, color=TEXT, fontsize=10, fontweight="semibold", pad=6)
+    ax.set_xlabel(xlabel, color=TEXT, fontsize=9)
+    ax.set_ylabel(ylabel, color=TEXT, fontsize=9)
     ax.tick_params(colors=TEXT, labelsize=8)
-    for s in ax.spines.values(): s.set_edgecolor("#333")
-    ax.xaxis.label.set_color(TEXT); ax.yaxis.label.set_color(TEXT)
-    ax.grid(True, color="#2a2d3a", linewidth=0.5, linestyle="--")
+    ax.grid(True, color="#dddddd", linewidth=0.6, linestyle="--")
+    ax.spines["left"].set_color("#cccccc")
+    ax.spines["bottom"].set_color("#cccccc")
 
-def vline(ax):
-    ax.axvline(t_induce, color=YELLOW, lw=1.2, linestyle="--", alpha=0.75, label="IPTG induction")
+def vline(ax, label=True):
+    kw = dict(color=IND, lw=1.2, linestyle="--", alpha=0.9)
+    if label:
+        ax.axvline(t_induce, label="IPTG induction", **kw)
+    else:
+        ax.axvline(t_induce, **kw)
 
-# ── Figure ────────────────────────────────────────────────────────────────────
+# ── Main figure ───────────────────────────────────────────────────────────────
 fig = plt.figure(figsize=(13, 10), facecolor=BG)
-gs  = GridSpec(3, 2, figure=fig, hspace=0.48, wspace=0.32)
+gs  = GridSpec(3, 2, figure=fig, hspace=0.52, wspace=0.32)
 
 ax1 = fig.add_subplot(gs[0, 0])
-ax1.plot(t, X, color=GREEN, lw=2, label="Biomass")
-ax1.axhline(X_induce, color=YELLOW, lw=1, linestyle=":", alpha=0.8, label=f"Induction target ({X_induce} g/L)")
+ax1.plot(t, X, color=C1, lw=1.8, label="Biomass")
+ax1.axhline(X_induce, color=IND, lw=0.9, linestyle=":", alpha=0.7,
+            label=f"Induction target ({X_induce} g/L)")
 vline(ax1)
-ax1.set_xlabel("Time (h)"); ax1.set_ylabel("Biomass (g DCW/L)")
-ax1.legend(facecolor=PANEL, edgecolor="#444", labelcolor=TEXT, fontsize=7)
-style_ax(ax1, "Biomass Growth (C. glutamicum)")
+ax1.legend(fontsize=7, framealpha=0.5)
+style_ax(ax1, "Biomass (C. glutamicum)", "Time (h)", "Biomass (g DCW/L)")
 
 ax2 = fig.add_subplot(gs[0, 1])
-ax2.plot(t, S, color=ORANGE, lw=2)
-vline(ax2)
-ax2.set_xlabel("Time (h)"); ax2.set_ylabel("Glucose (g/L)")
-style_ax(ax2, "Glucose Concentration")
+ax2.plot(t, S, color=C2, lw=1.8)
+vline(ax2, label=False)
+style_ax(ax2, "Glucose Concentration", "Time (h)", "Glucose (g/L)")
 
 ax3 = fig.add_subplot(gs[1, 0])
-ax3.plot(t, P, color=CYAN, lw=2.5)
-ax3.axhline(5.42, color=RED, lw=1, linestyle="--", alpha=0.8, label="Literature target (5.42 g/L)")
+ax3.plot(t, P, color=C1, lw=2.0)
+ax3.axhline(5.42, color="#bbbbbb", lw=1, linestyle="--",
+            label="Literature target (5.42 g/L)")
 vline(ax3)
-ax3.set_xlabel("Time (h)"); ax3.set_ylabel("Creatine (g/L)")
-ax3.legend(facecolor=PANEL, edgecolor="#444", labelcolor=TEXT, fontsize=7)
-style_ax(ax3, "Creatine Production")
+ax3.legend(fontsize=7, framealpha=0.5)
+style_ax(ax3, "Creatine Production", "Time (h)", "Creatine (g/L)")
 
 ax4 = fig.add_subplot(gs[1, 1])
-ax4.plot(t, GA, color=PURPLE, lw=2)
-vline(ax4)
-ax4.set_xlabel("Time (h)"); ax4.set_ylabel("GAA (g/L)")
-style_ax(ax4, "Guanidinoacetate (GAA) — Substrate for GAMT")
+ax4.plot(t, GA, color=C3, lw=1.8)
+vline(ax4, label=False)
+style_ax(ax4, "Guanidinoacetate (GAA)", "Time (h)", "GAA (g/L)")
 
 ax5 = fig.add_subplot(gs[2, 0])
-ax5.plot(t, E * 100, color=RED, lw=2)
-vline(ax5)
-ax5.set_xlabel("Time (h)"); ax5.set_ylabel("GAMT Activity (%)")
-style_ax(ax5, "GAMT Enzyme Expression (Ptac/IPTG-induced)")
+ax5.plot(t, E * 100, color=C4, lw=1.8)
+vline(ax5, label=False)
+style_ax(ax5, "GAMT Enzyme Activity (Ptac/IPTG)", "Time (h)", "GAMT Activity (%)")
 
 ax6 = fig.add_subplot(gs[2, 1])
-ax6.plot(t, V, color=YELLOW, lw=2)
-vline(ax6)
-ax6.set_xlabel("Time (h)"); ax6.set_ylabel("Volume (L)")
-style_ax(ax6, "Reactor Volume (Fed-Batch)")
+ax6.plot(t, V, color=C5, lw=1.8)
+vline(ax6, label=False)
+style_ax(ax6, "Reactor Volume", "Time (h)", "Volume (L)")
 
 fig.patch.set_facecolor(BG)
 st.pyplot(fig)
@@ -175,7 +188,7 @@ plt.close(fig)
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
 st.markdown("---")
-st.subheader("📊 Process Performance Metrics")
+st.subheader("Process Performance")
 
 final_creatine   = P[-1]
 final_biomass    = X[-1]
@@ -186,183 +199,146 @@ gaa_consumed     = F_gaa * GAA_feed * max(0, t_end - t_induce)
 creatine_yield   = total_creatine_g / gaa_consumed if gaa_consumed > 0 else 0
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Final Creatine Titre", f"{final_creatine:.2f} g/L",
+c1.metric("Final Creatine Titre",    f"{final_creatine:.2f} g/L",
           delta=f"{final_creatine - 5.42:+.2f} vs lit. (5.42 g/L)")
-c2.metric("Final Biomass",        f"{final_biomass:.1f} g DCW/L")
-c3.metric("IPTG Induction Time",  f"{t_induce:.1f} h")
+c2.metric("Final Biomass",           f"{final_biomass:.1f} g DCW/L")
+c3.metric("IPTG Induction Time",     f"{t_induce:.1f} h")
 c4.metric("Volumetric Productivity", f"{vol_productivity:.2f} g/h")
 c5.metric("Creatine Yield on GAA",   f"{creatine_yield:.2f} g/g")
 
-# ── Phase table ───────────────────────────────────────────────────────────────
+# ── Phase and conditions tables ───────────────────────────────────────────────
 st.markdown("---")
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("🔬 Process Phases")
+    st.subheader("Process Phases")
     st.markdown(f"""
 | Phase | Time | Event |
 |-------|------|-------|
-| **Growth** | 0 → {t_induce:.1f} h | Biomass accumulation, GAMT OFF |
-| **Induction** | {t_induce:.1f} h | IPTG added → Ptac activated |
-| **Production** | {t_induce:.1f} → {t_end} h | GAMT expressed, GAA → Creatine |
+| Growth | 0 - {t_induce:.1f} h | Biomass accumulation, GAMT off |
+| Induction | {t_induce:.1f} h | IPTG added, Ptac activated |
+| Production | {t_induce:.1f} - {t_end} h | GAMT expressed, GAA converted to creatine |
 """)
 with col2:
-    st.subheader("⚙️ Fixed Operating Conditions")
+    st.subheader("Fixed Operating Conditions")
     st.markdown("""
 | Parameter | Value | Reference |
 |-----------|-------|-----------|
-| Temperature | 30 °C | Part 2 §2.4 |
-| pH | 7.0 – 7.2 | Part 2 §2.4 |
-| DO | ≥ 30% air sat. | Part 2 §2.4 |
-| Reactor | STR, Rushton turbine | Part 2 §2.3 |
-| Promoter | Ptac (IPTG-inducible) | Part 1 §2.3 |
-| GAMT gene | Mcgamt (M. caroli, 723 bp) | Part 1 §2.3 |
+| Temperature | 30 C | Part 2 s2.4 |
+| pH | 7.0 - 7.2 | Part 2 s2.4 |
+| Dissolved O2 | >= 30% air sat. | Part 2 s2.4 |
+| Reactor | STR, Rushton turbine | Part 2 s2.3 |
+| Promoter | Ptac (IPTG-inducible) | Part 1 s2.3 |
+| GAMT gene | Mcgamt (M. caroli, 723 bp) | Part 1 s2.3 |
 """)
 
-# ── Scale-up Analysis ─────────────────────────────────────────────────────────
+# ── Scale-Up Analysis ─────────────────────────────────────────────────────────
 st.markdown("---")
-st.subheader("📈 Scale-Up Analysis")
+st.subheader("Scale-Up Analysis")
 st.markdown(
-    "How does this process perform as we scale from a **5 L lab bench** → "
-    "**500 L pilot plant** → **50,000 L industrial** bioreactor? "
-    "Key engineering challenges change dramatically at each scale."
+    "Performance projections scaling from lab bench to industrial production. "
+    "Key engineering constraints shift at each order of magnitude."
 )
 
-scales = {
-    "Lab (5 L)":        {"V": 5,      "scale_factor": 1.0},
-    "Pilot (500 L)":    {"V": 500,    "scale_factor": 100.0},
-    "Industrial (50,000 L)": {"V": 50000, "scale_factor": 10000.0},
-}
-
-# Engineering correlations for scale-up
-# Power per unit volume (P/V) kept constant is common industrial approach
-# kLa scales with (P/V)^0.4 * vs^0.5  (van't Riet correlation)
-# Mixing time scales with V^0.33
-# Heat removal area/volume ratio drops with scale
-
-P_V_lab   = 3000   # W/m³ — typical lab bioreactor
-vs_lab    = 0.05   # m/s — superficial gas velocity
-
 scale_rows = []
-for name, props in scales.items():
-    V_scale = props["V"]
-    sf      = props["scale_factor"]
-
-    # Keep P/V constant → same kLa (conservative assumption)
-    kLa      = 0.3 * (P_V_lab ** 0.4) * (vs_lab ** 0.5) / 10  # h⁻¹ normalized
-    mix_time = 2.5 * (V_scale ** 0.33)                          # seconds, empirical
-
-    # Heat generation scales with volume; area scales with V^0.67
-    Q_gen    = 80 * V_scale          # W (metabolic heat ~80 W/L at high density)
-    A_cool   = 4.84 * (V_scale ** 0.67)  # m² cooling area
-    heat_flux= Q_gen / (A_cool * 1000)   # kW/m²
-
-    # Oxygen demand
-    OUR      = 60 * final_biomass * V_scale / 1000  # mol O2/h
-
-    # Creatine output
+for name, V_scale in [("Lab (5 L)", 5), ("Pilot (500 L)", 500), ("Industrial (50,000 L)", 50000)]:
+    mix_time    = 2.5 * (V_scale ** 0.33)
+    Q_gen       = 80 * V_scale
+    A_cool      = 4.84 * (V_scale ** 0.67)
+    heat_flux   = Q_gen / (A_cool * 1000)
+    OUR         = 60 * final_biomass * V_scale / 1000
     creatine_kg = final_creatine * V_scale / 1000
-
+    challenge   = (
+        "Baseline — good O2 transfer, easy mixing" if V_scale <= 5 else
+        "Mixing gradients appear, impeller optimization required" if V_scale <= 500 else
+        "Heat removal critical, O2 transfer limiting, sterility risk"
+    )
     scale_rows.append({
-        "Scale":               name,
-        "Volume (L)":          f"{V_scale:,}",
+        "Scale":                      name,
+        "Volume (L)":                 f"{V_scale:,}",
         "Creatine output (kg/batch)": f"{creatine_kg:.2f}",
-        "Mixing time (s)":     f"{mix_time:.0f}",
-        "O₂ demand (mol/h)":   f"{OUR:.0f}",
-        "Cooling flux (kW/m²)":f"{heat_flux:.2f}",
-        "Key challenge":       (
-            "Baseline — good O₂ transfer, easy mixing"
-            if V_scale <= 5 else
-            "Mixing gradients appear, need impeller optimization"
-            if V_scale <= 500 else
-            "Heat removal critical, O₂ transfer limiting, sterility risk"
-        )
+        "Mixing time (s)":            f"{mix_time:.0f}",
+        "O2 demand (mol/h)":          f"{OUR:.0f}",
+        "Cooling flux (kW/m2)":       f"{heat_flux:.2f}",
+        "Key constraint":             challenge,
     })
 
-import pandas as pd
 df_scale = pd.DataFrame(scale_rows).set_index("Scale")
 st.dataframe(df_scale, use_container_width=True)
 
-# Scale-up chart
 fig2, axes = plt.subplots(1, 3, figsize=(13, 4), facecolor=BG)
 vols        = [5, 500, 50000]
 creatine_out= [final_creatine * v / 1000 for v in vols]
 mix_times   = [2.5 * (v ** 0.33) for v in vols]
 heat_fluxes = [(80 * v) / (4.84 * (v ** 0.67) * 1000) for v in vols]
-labels      = ["Lab\n5 L", "Pilot\n500 L", "Industrial\n50,000 L"]
-colors      = [CYAN, ORANGE, RED]
+xlabels     = ["Lab\n5 L", "Pilot\n500 L", "Industrial\n50,000 L"]
+bar_colors  = [C2, C3, C4]
 
 for ax, ydata, ylabel, title in zip(
     axes,
     [creatine_out, mix_times, heat_fluxes],
-    ["Creatine (kg/batch)", "Mixing Time (s)", "Cooling Flux (kW/m²)"],
+    ["Creatine (kg/batch)", "Mixing Time (s)", "Cooling Flux (kW/m2)"],
     ["Creatine Output per Batch", "Mixing Time vs Scale", "Cooling Demand vs Scale"]
 ):
-    bars = ax.bar(labels, ydata, color=colors, edgecolor="#333", width=0.5)
+    bars = ax.bar(xlabels, ydata, color=bar_colors, edgecolor="white", width=0.5)
     for bar, val in zip(bars, ydata):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.03,
-                f"{val:.2f}", ha="center", color=TEXT, fontsize=9, fontweight="bold")
-    ax.set_facecolor(PANEL); ax.set_ylabel(ylabel, color=TEXT, fontsize=9)
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.03,
+                f"{val:.2f}", ha="center", color=TEXT, fontsize=9)
+    ax.set_facecolor(PANEL)
+    ax.set_ylabel(ylabel, color=TEXT, fontsize=9)
+    ax.set_title(title, color=TEXT, fontsize=10, fontweight="semibold", pad=6)
     ax.tick_params(colors=TEXT, labelsize=8)
-    for sp in ax.spines.values(): sp.set_edgecolor("#333")
-    ax.set_title(title, color=TEXT, fontsize=10, fontweight="bold", pad=7)
-    ax.grid(True, axis="y", color="#2a2d3a", linewidth=0.5, linestyle="--")
+    ax.grid(True, axis="y", color="#dddddd", linewidth=0.6, linestyle="--")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#cccccc")
+    ax.spines["bottom"].set_color("#cccccc")
 
 fig2.patch.set_facecolor(BG)
 fig2.tight_layout(pad=2)
 st.pyplot(fig2)
 plt.close(fig2)
 
-with st.expander("💡 Scale-Up Engineering Notes", expanded=False):
+with st.expander("Scale-Up Engineering Notes"):
     st.markdown("""
-    ### Why Scale-Up Is Non-Trivial
+**Mixing time** grows with volume (~V^0.33). At 50,000 L, mixing takes roughly 90 seconds
+compared to 3 seconds at lab scale. This creates concentration gradients of glucose, GAA, and
+dissolved oxygen across the reactor — cells near the feed inlet experience different conditions
+than those elsewhere. This is the primary motivation for specifying a Rushton turbine and baffles
+in the reactor design (Part 2, s2.3).
 
-    **Mixing time** grows with volume (~V⁰·³³). At 50,000 L, mixing takes ~90 seconds vs ~3 seconds
-    at lab scale. This creates **concentration gradients** of glucose, GAA, and dissolved oxygen —
-    cells near the feed inlet see different conditions than those far away. This is why your report
-    specifies a Rushton turbine (23–77% kLa enhancement) and baffles.
+**Oxygen transfer** becomes the rate-limiting step at industrial scale. At high cell densities,
+the oxygen uptake rate can exceed the reactor supply capacity, causing DO to drop below the 30%
+threshold. Cascade control via agitation RPM and airflow is used to manage this (Part 2, s2.4).
 
-    **Oxygen transfer** becomes the limiting factor at industrial scale. The oxygen uptake rate (OUR)
-    of a dense *C. glutamicum* culture can exceed the reactor's capacity to supply O₂, causing
-    DO to drop below the 30% threshold specified in your design. Solutions include:
-    - Increase agitation RPM (cascade DO control, Part 2 §2.4)
-    - Increase airflow rate
-    - Enrich with pure O₂ if needed
+**Heat removal** — metabolic heat generation scales linearly with volume, but cooling surface area
+only scales with V^0.67. At 50,000 L, a cooling jacket alone is insufficient and internal coils
+are required.
 
-    **Heat removal** — metabolic heat generation scales with volume (V), but cooling area only
-    scales with V⁰·⁶⁷. At 50,000 L, a cooling jacket alone is insufficient — internal cooling
-    coils are required, consistent with your reactor design specification.
+**Sterility** risk increases with scale due to more connections, longer run times, and larger
+surface areas. Addressed through SIP/CIP, sterile gas filtration, and closed sampling systems
+(Part 2, s2.3).
+""")
 
-    **Sterility risk** increases with scale. More inlet/outlet connections, longer run times,
-    and larger surface areas all increase contamination probability — addressed in your SIP/CIP
-    and sterile sampling strategy (Part 2 §2.3).
-    """)
-
-# ── Equations ─────────────────────────────────────────────────────────────────
-with st.expander("📚 Model Equations & Assumptions", expanded=False):
+# ── Model equations ───────────────────────────────────────────────────────────
+with st.expander("Model Equations and Assumptions"):
     st.markdown(r"""
-### Kinetic Model
-
 **Cell growth — Monod kinetics:**
 $$\mu = \mu_{max} \frac{S}{K_s + S}$$
 
-**Fed-batch ODEs (D = F_total / V):**
+**Fed-batch mass balances** (D = F_total / V):
 $$\frac{dX}{dt} = \mu X - DX$$
 $$\frac{dS}{dt} = -\frac{\mu X}{Y_{x/s}} - m_s X - DS + \frac{F_{gluc} \cdot S_{feed}}{V}$$
-$$\frac{d[GAA]}{dt} = -v_{GAMT} \cdot X - D \cdot GAA + \frac{F_{GAA} \cdot GAA_{feed}}{V}$$
+$$\frac{d[GAA]}{dt} = -v_{GAMT} \cdot X - D \cdot GAA + \frac{F_{GAA} \cdot [GAA]_{feed}}{V}$$
 $$\frac{dP}{dt} = v_{GAMT} \cdot X - D \cdot P$$
 
 **GAMT — Michaelis-Menten with substrate inhibition:**
 $$v_{GAMT} = V_{max} \cdot E \cdot \frac{[GAA]}{K_m + [GAA] + [GAA]^2 / K_i}$$
 
-**GAMT enzyme induction (first-order, post-IPTG):**
+**GAMT induction (first-order, post-IPTG):**
 $$\frac{dE}{dt} = k_{GAMT}(1 - E) - k_{deg} \cdot E$$
 
-### Key Assumptions
-- SAM (methyl donor) is non-limiting — native C. glutamicum metabolism sufficient (Part 1 §2.1)
-- Oxygen is non-limiting (DO ≥ 30% via cascade control, Part 2 §2.4)
-- Isothermal at 30°C, pH 7.0 maintained by PID control (Part 2 §2.4)
-- Codon-optimized Mcgamt ensures efficient GAMT translation (Part 1 §2.3)
-- No significant product inhibition by creatine at these titres
+**Assumptions:** SAM (methyl donor) non-limiting; O2 non-limiting (DO >= 30% via cascade control);
+isothermal at 30 C; pH 7.0 maintained by PID; no product inhibition by creatine at these titres.
 """)
 
-st.caption("CHBE 221 Team 22 · C. glutamicum Creatine Fed-Batch Simulator · Python / SciPy / Streamlit")
+st.caption("CHBE 221 Team 22 — C. glutamicum Creatine Fed-Batch Simulator")
